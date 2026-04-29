@@ -14,8 +14,7 @@ provider "aws" {
   skip_credentials_validation = true
   skip_metadata_api_check     = true
   skip_requesting_account_id  = true
-
-  s3_use_path_style           = true
+  s3_use_path_style           = true # Forzar el uso de URLs basadas en path para S3 en LocalStack
 
   endpoints {
     s3  = "http://localhost:4566"
@@ -35,10 +34,42 @@ resource "aws_subnet" "subred" {
   tags = { Name = "Subred-${var.alumno}" }
 }
 
+resource "aws_security_group" "firewall_web" {
+  name        = "seguridad-web-${var.alumno}"
+  description = "Permitir trafico HTTP y SSH"
+  vpc_id      = aws_vpc.red.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "SG-${var.alumno}"
+  }
+}
+
 resource "aws_instance" "servidor_principal" {
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.subred.id
+  vpc_security_group_ids = [aws_security_group.firewall_web.id]
   tags = { Name = "Servidor-Principal-${var.alumno}" }
 }
 
@@ -48,6 +79,7 @@ resource "aws_instance" "servidor_respaldo" {
   ami           = "ami-0c55b159cbfafe1f0"
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.subred.id
+  vpc_security_group_ids = [aws_security_group.firewall_web.id]
   tags = { Name = "Servidor-Respaldo-${var.alumno}" }
 }
 
